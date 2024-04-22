@@ -212,8 +212,8 @@ function initTpl() {
 		if ( lang === "fr" ) {
 			resultErrorTemplateHTML = 
 				`<section class="alert alert-warning">
-					<h2>The Canada.ca Search is currently experiencing issues</h2>
-					<p>A resolution for the restoration is presently being worked.	We apologize for any inconvenience.</p>
+					<h2>Nous éprouvons actuellement des problèmes avec la fonction de recherche sur le site Web Canada.ca</h2>
+					<p>L'équipe chargée de rétablir les services touchés travaille de façon à résoudre le problème aussi rapidement que possible. Nous vous prions de nous excuser pour tout inconvénient.</p>
 				</section>`;
 		}
 		else {
@@ -228,18 +228,18 @@ function initTpl() {
 	if ( !querySummaryTemplateHTML ) {
 		if ( lang === "fr" ) {
 			querySummaryTemplateHTML = 
-				`<h2><span class="wb-inv">Résultats de recherche - </span><span role="status">%[numberOfResults] résultats de recherche pour "%[query]"</span></h2>`;
+				`<h2>%[numberOfResults] résultats de recherche pour "%[query]"</h2>`;
 		}
 		else {
 			querySummaryTemplateHTML = 
-				`<h2><span class="wb-inv">Search results - </span><span role="status">%[numberOfResults] search results for "%[query]"</span></h2>`;
+				`<h2>%[numberOfResults] search results for "%[query]"</h2>`;
 		}
 	}
 
 	if ( !didYouMeanTemplateHTML ) {
 		if ( lang === "fr" ) {
 			didYouMeanTemplateHTML = 
-				`<p class="did-you-mean">Rechercher plutôt <button class="btn-link p-0">%[correctedQuery]</button> ?</p>`;
+				`<p class="h5 mrgn-lft-md">Rechercher plutôt <button class="btn-link p-0">%[correctedQuery]</button> ?</p>`;
 		}
 		else {
 			didYouMeanTemplateHTML = 
@@ -361,8 +361,6 @@ function initTpl() {
 		searchBoxElement.after( suggestionsElement );
 	}
 
-	resultsSection.setAttribute( "aria-live", "polite" );
-
 	// Query suggestions
 	if ( suggestionsElement ) {
 
@@ -399,6 +397,9 @@ function initTpl() {
 			} );
 		}
 	}
+
+	// Now that the templates are iniated, update the user when idle of further change to the region
+	resultsSection.setAttribute( "aria-live", "polite" );
 }
 
 // Initiate headless engine
@@ -421,7 +422,7 @@ function initEngine() {
 						requestContent.originLevel3 = params.originLevel3;
 						request.body = JSON.stringify( requestContent );
 
-
+						// Event used to expose a data layer when search events occur; useful for analytics
 						const searchEvent = new CustomEvent( "searchEvent", { detail: requestContent } );
 						document.dispatchEvent( searchEvent );
 					}
@@ -530,6 +531,7 @@ function initEngine() {
 			headlessEngine.dispatch( sortAction );
 		}
 
+		// Specifically for Elections Canada, allows to search within scope
 		if ( urlParams.elctn_cat ) {
 			let elctn_cat = urlParams.elctn_cat.toLowerCase();
 			if( elctn_cat === "his" ) {
@@ -764,11 +766,6 @@ function updateSearchBoxState( newState ) {
 	}
 }
 
-// Scroll to top
-function scrollToTop() {
-	querySummaryElement.scrollIntoView();
-}
-
 // Filters out dangerous URIs that can create XSS attacks such as `javascript:`.
 function filterProtocol( uri ) {
 
@@ -901,6 +898,17 @@ function updateQuerySummaryState( newState ) {
 		querySummaryElement.textContent = "";
 		querySummaryElement.innerHTML = resultErrorTemplateHTML;
 	}
+
+	// Focus to results section
+	if( !querySummaryState.isLoading && querySummaryElement.textContent !== "" ) {
+		let focusElement = resultsSection.querySelector( "h2" );
+		
+		if( focusElement ) {
+			focusElement.role = "status";
+			focusElement.tabIndex = -1;
+			focusElement.focus();
+		}
+	}
 }
 
 // update did you mean
@@ -918,7 +926,6 @@ function updateDidYouMeanState( newState ) {
 			buttonNode.onclick = ( e ) => { 
 				updateSearchBoxFromState = true;
 				didYouMeanController.applyCorrection();
-				scrollToTop();
 				e.preventDefault();
 			};
 		}
@@ -939,7 +946,6 @@ function updatePagerState( newState ) {
 
 		buttonNode.onclick = () => { 
 			pagerController.previousPage();
-			scrollToTop();
 		};
 
 		pagerElement.appendChild( liNode );
@@ -951,9 +957,9 @@ function updatePagerState( newState ) {
 
 		liNode.innerHTML = pageTemplateHTML.replaceAll( '%[page]', pageNo );
 
-		if ( page < pagerState.currentPage - 1 || page > pagerState.currentPage + 1 ) {
+		if ( pagerState.currentPage - 1 > page || page > pagerState.currentPage + 1 ) {
 			liNode.classList.add( 'hidden-xs', 'hidden-sm' );
-			if ( page < pagerState.currentPage - 2 || page > pagerState.currentPage + 2 ) {
+			if ( pagerState.currentPage - 2 > page || page > pagerState.currentPage + 2 ) {
 				liNode.classList.add( 'hidden-md' );
 			}
 		}
@@ -967,7 +973,6 @@ function updatePagerState( newState ) {
 
 		buttonNode.onclick = () => {
 			pagerController.selectPage( pageNo );
-			scrollToTop();
 		};
 
 		pagerElement.appendChild( liNode );
@@ -982,7 +987,6 @@ function updatePagerState( newState ) {
 
 		buttonNode.onclick = () => { 
 			pagerController.nextPage(); 
-			scrollToTop();
 		};
 
 		pagerElement.appendChild( liNode );
